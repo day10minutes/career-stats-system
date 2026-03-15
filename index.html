@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>진로취업 통계 시각화 시스템</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #2563eb; --bg-main: #f1f5f9; --border: #e2e8f0; --radius: 12px; }
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background: var(--bg-main); color: #1e293b; overflow-x: hidden; }
+        .container { display: flex; min-height: 100vh; }
+        aside { width: 260px; background: white; border-right: 1px solid var(--border); padding: 2.5rem 1.5rem; position: sticky; top: 0; height: 100vh; z-index: 50; }
+        main { flex: 1; padding: 2.5rem; max-width: 1500px; margin: 0 auto; }
+        
+        /* Layout Grid */
+        .chart-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: white; border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); overflow: visible; }
+        .card h3 { margin-top: 0; margin-bottom: 1.5rem; font-size: 1.1rem; border-left: 4px solid var(--primary); padding-left: 10px; }
+        
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; margin-bottom: 2rem; }
+        .stat-value { font-size: 2rem; font-weight: 800; color: var(--primary); margin-top: 0.5rem; }
+        
+        /* Table Styles (Restored) */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid var(--border); font-size: 0.85rem; color: #64748b; }
+        td { padding: 14px 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+        tr:hover { background: #f9fafb; }
+
+        /* Modal Settings */
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
+        .modal-content { background:white; width:80%; max-width:900px; max-height:85vh; border-radius:16px; padding:2.5rem; overflow-y:auto; position:relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        .close-btn { position:absolute; top:20px; right:20px; cursor:pointer; font-size:1.5rem; border:none; background:none; color:#64748b; }
+
+        .btn { padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border); background: white; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: white; border: none; }
+        .btn-detail { color: var(--primary); border: 1px solid var(--primary); background: transparent; padding: 6px 12px; }
+        .btn-detail:hover { background: #eff6ff; }
+        
+        .hidden { display: none; }
+        .details-tooltip { visibility: hidden; position: absolute; background: #1e293b; color: white; padding: 12px; border-radius: 8px; z-index: 100; width: 240px; font-size: 0.8rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); opacity: 0; transition: opacity 0.2s; pointer-events: none; line-height: 1.6; }
+        td:hover .details-tooltip { visibility: visible; opacity: 1; }
+        canvas { max-width: 100% !important; height: 320px !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside>
+            <h2 style="color: var(--primary); margin-bottom: 2rem; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.5rem">📉</span> CareerStat
+            </h2>
+            <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('excel-input').click()">엑셀 업로드</button>
+            <input type="file" id="excel-input" hidden accept=".xlsx, .xls">
+            <div id="sheet-area" class="hidden" style="margin-top: 2rem;">
+                <label style="font-size: 0.85rem; font-weight: 700; color:#64748b">📊 분석 시트 선택</label>
+                <select id="sheet-select" style="width:100%; padding:10px; margin-top:10px; border-radius:8px; border:1px solid var(--border);" onchange="loadSheet(this.value)"></select>
+            </div>
+        </aside>
+
+        <main>
+            <h1 id="main-title" style="margin-top:0">통계 대시보드</h1>
+            <div id="dashboard-view" class="hidden">
+                <div class="stat-grid">
+                    <div class="card"><small style="color:#64748b">총 신청자</small><div id="stat-total" class="stat-value">-</div></div>
+                    <div class="card"><small style="color:#64748b">참여자 수 (건수)</small><div id="stat-participants" class="stat-value">-</div></div>
+                    <div class="card"><small style="color:#64748b">참여율</small><div id="stat-rate" class="stat-value">-</div></div>
+                </div>
+
+                <div class="card" style="margin-bottom: 2rem; background: #eff6ff; border:none; border-left:6px solid var(--primary);">
+                    <div id="insight-text" style="line-height: 1.7; font-size:0.95rem">분석 데이터 로딩 중...</div>
+                </div>
+
+                <div class="chart-row">
+                    <div class="card"><h3>월별 추이</h3><canvas id="monthChart"></canvas></div>
+                    <div class="card"><h3>단과대 분포</h3><canvas id="collegeChart"></canvas></div>
+                    <div class="card"><h3>학년 분포</h3><canvas id="gradeChart"></canvas></div>
+                </div>
+
+                <div id="monthly-report-container"></div>
+            </div>
+
+            <div id="welcome-view" style="text-align:center; padding: 10rem 0; color:#94a3b8">
+                <div style="font-size:4rem; margin-bottom:1rem">📁</div>
+                <p>파일을 업로드하여 통계 분석을 시작하세요.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- 상세 보기 모달 -->
+    <div id="detailModal" class="modal-overlay" onclick="if(event.target==this) closeModal()">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">✕</button>
+            <h2 id="modalTitle" style="color:var(--primary); margin-bottom:1.5rem">상세 분석</h2>
+            <div id="modalData"></div>
+        </div>
+    </div>
+
+    <script>
+        const collegeColors = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#4f46e5', '#9333ea', '#c026d3', '#e11d48', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#8b5cf6', '#06b6d4'];
+        let workbook = null, rawData = [], charts = {}, currentSheetName = "";
+        let mapping = { college: '단과대', grade: '학년', status: '참석여부', date: '참여일시', type: '구분', program: '프로그램명', education: '교육명', studentId: '학번', name: '이름' };
+
+        document.getElementById('excel-input').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                workbook = XLSX.read(data, {type: 'array'});
+                document.getElementById('sheet-select').innerHTML = workbook.SheetNames.map(n => `<option value="${n}">${n}</option>`).join('');
+                document.getElementById('sheet-area').classList.remove('hidden');
+                loadSheet(workbook.SheetNames[0]);
+            };
+            reader.readAsArrayBuffer(e.target.files[0]);
+        });
+
+        function loadSheet(name) {
+            currentSheetName = name;
+            rawData = XLSX.utils.sheet_to_json(workbook.Sheets[name]);
+            if (rawData.length > 0) {
+                const h = Object.keys(rawData[0]);
+                const find = (keys) => h.find(col => keys.some(k => col.includes(k))) || keys[0];
+                mapping.college = find(['단과대', '대학']); mapping.grade = find(['학년']);
+                mapping.status = find(['참석', '참여여부', '결과']); mapping.date = find(['일시', '날짜']);
+                mapping.type = find(['구분']); mapping.program = find(['프로그램명', '프로그램']);
+                mapping.education = find(['교육명', '유형']); mapping.studentId = find(['학번', 'ID', '번호']);
+                mapping.name = find(['성명', '이름']);
+            }
+            processData();
+        }
+
+        let currentMatrix = {};
+
+        function processData() {
+            if (!rawData || rawData.length === 0) return;
+            let participants = 0;
+            const byCol = {}, byGrad = {}, byMonth = {}, matrix = {}, studentTrace = {}, netUniqueSet = new Set();
+            const isAllMode = currentSheetName.toUpperCase().includes('ALL');
+
+            rawData.forEach(row => {
+                const status = String(row[mapping.status] || '').trim();
+                const isPart = ['참석', '완료', 'Y', '참여'].includes(status);
+                if (isPart) {
+                    participants++;
+                    const c = row[mapping.college] || '단과대정보 확인 불가', g = row[mapping.grade] || '학년정보 확인 불가', m = extractMonth(row[mapping.date]);
+                    const prog = row[mapping.program] || '기타 프로그램', edu = row[mapping.education] || '기타 유형', sid = String(row[mapping.studentId] || '미기입');
+                    
+                    byCol[c] = (byCol[c] || 0) + 1; byGrad[g] = (byGrad[g] || 0) + 1; byMonth[m] = (byMonth[m] || 0) + 1;
+                    netUniqueSet.add(`${sid}|${prog}`);
+                    if (!studentTrace[sid]) studentTrace[sid] = { name: row[mapping.name], count: 0, college: c };
+                    studentTrace[sid].count++;
+
+                    if (!matrix[m]) matrix[m] = {};
+                    const groupKey = isAllMode ? prog : edu;
+                    if (!matrix[m][groupKey]) matrix[m][groupKey] = { total: 0, details: [], cols: {}, grads: {} };
+                    matrix[m][groupKey].total++;
+                    matrix[m][groupKey].details.push(row);
+                    matrix[m][groupKey].cols[c] = (matrix[m][groupKey].cols[c] || 0) + 1;
+                    matrix[m][groupKey].grads[g] = (matrix[m][groupKey].grads[g] || 0) + 1;
+                }
+            });
+
+            currentMatrix = matrix;
+            document.getElementById('stat-total').innerText = rawData.length + '명';
+            document.getElementById('stat-participants').innerText = participants + '명';
+            document.getElementById('stat-rate').innerText = ((participants / rawData.length) * 100).toFixed(1) + '%';
+            
+            updateCharts(byCol, byGrad, byMonth);
+            renderMatrix(matrix, isAllMode);
+            generateInsight(byGrad, participants, netUniqueSet.size, Object.values(studentTrace).filter(s=>s.count>1).length);
+            
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            document.getElementById('welcome-view').classList.add('hidden');
+        }
+
+        function extractMonth(v) {
+            if (!v) return "미지정";
+            if (typeof v === 'number') return (new Date((v-25569)*86400*1000).getMonth()+1)+"월";
+            const p = String(v).match(/\d+/g);
+            return (p && p.length >= 2 && parseInt(p[1]) <= 12) ? parseInt(p[1]) + "월" : "미지정";
+        }
+
+        function updateCharts(col, grad, mon) {
+            if (charts.college) charts.college.destroy();
+            charts.college = new Chart(document.getElementById('collegeChart'), {
+                type: 'pie', data: { labels: Object.keys(col), datasets: [{ data: Object.values(col), backgroundColor: collegeColors }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, font: { size:10 } } } } }
+            });
+
+            if (charts.grade) charts.grade.destroy();
+            charts.grade = new Chart(document.getElementById('gradeChart'), {
+                type: 'bar', data: { labels: Object.keys(grad), datasets: [{ data: Object.values(grad), backgroundColor: '#2563eb', borderRadius: 6 }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: true } } }
+            });
+
+            if (charts.month) charts.month.destroy();
+            charts.month = new Chart(document.getElementById('monthChart'), {
+                type: 'line', data: { labels: Object.keys(mon).sort((a,b)=>parseInt(a)-parseInt(b)), datasets: [{ data: Object.values(mon), borderColor: '#2563eb', fill: true, backgroundColor: 'rgba(37, 99, 235, 0.1)', tension: 0.4 }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderMatrix(matrix, isAllMode) {
+            const container = document.getElementById('monthly-report-container');
+            container.innerHTML = `<h3 style="margin-top:2.5rem">🗓️ 월별 세부 리포트 (요약된 주요 특징)</h3>`;
+            
+            Object.entries(matrix).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([m, groups]) => {
+                const card = document.createElement('div');
+                card.className = 'card'; card.style.marginBottom = '1.5rem';
+                card.innerHTML = `<h4>📅 ${m} 운영 현황</h4>`;
+                
+                const table = document.createElement('table');
+                table.innerHTML = `<thead><tr><th>${isAllMode ? '프로그램명' : '교육명(유형)'}</th><th>인원</th><th>주요 단과대</th><th>주요 학년</th></tr></thead>`;
+                const tbody = document.createElement('tbody');
+                
+                Object.entries(groups).forEach(([name, data]) => {
+                    const sortedCols = Object.entries(data.cols).sort((a,b)=>b[1]-a[1]);
+                    const sortedGrads = Object.entries(data.grads).sort((a,b)=>b[1]-a[1]);
+                    
+                    const topCol = sortedCols.length > 0 ? sortedCols[0][0] : '-';
+                    const topGrad = sortedGrads.length > 0 ? sortedGrads[0][0] : '-';
+                    
+                    const colTooltip = sortedCols.map(([k,v])=>`${k}: ${v}명`).join('<br>');
+                    const gradTooltip = sortedGrads.map(([k,v])=>`${k}: ${v}명`).join('<br>');
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight:700">${name}</td>
+                        <td style="color:var(--primary); font-weight:700; cursor:pointer;" onclick="showModal('${m}', '${name.replace(/'/g, "\\'")}')">${data.total}명</td>
+                        <td style="position:relative; cursor:help;">${topCol} <div class="details-tooltip">${colTooltip}</div></td>
+                        <td style="position:relative; cursor:help;">${topGrad} <div class="details-tooltip">${gradTooltip}</div></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                card.appendChild(table);
+                container.appendChild(card);
+            });
+        }
+
+        function showModal(month, key) {
+            const rows = currentMatrix[month][key].details;
+            const modal = document.getElementById('detailModal');
+            const dataBox = document.getElementById('modalData');
+            document.getElementById('modalTitle').innerText = `${month} | ${key} 상세 내역`;
+            
+            let html = '<table><thead><tr><th>학번</th><th>성명</th><th>단과대</th><th>학년</th></tr></thead><tbody>';
+            rows.forEach(r => {
+                html += `<tr><td>${r[mapping.studentId] || '-'}</td><td>${r[mapping.name] || '-'}</td><td>${r[mapping.college] || '-'}</td><td>${r[mapping.grade] || '-'}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            dataBox.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('detailModal').style.display = 'none'; }
+
+        function generateInsight(grad, part, netUnique, dupeCount) {
+            const seniorRate = (grad['4학년'] || 0) / part;
+            const isConc = (grad['1학년']||0) === 0 || seniorRate > 0.5;
+            document.getElementById('insight-text').innerHTML = `
+                <div style="font-size:1rem; font-weight:800; margin-bottom:8px;">📊 참여 정밀 분석 결과</div>
+                데이터 분석 결과, 본 리포트는 <strong>${isConc ? '특정 계층 집중형' : '전 학년 고른 분포형'}</strong> 모델을 보이고 있습니다. <br>
+                • <strong>순 참여자(Net Unique)</strong>: 총 참여 ${part}명 중 고유 인원은 <strong>${netUnique}명</strong>입니다. <br>
+                • <strong>중복 참여 현황</strong>: 총 <strong>${dupeCount}명</strong>의 학생이 다회 이용하고 있습니다.
+            `;
+        }
+    </script>
+</body>
+</html>

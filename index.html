@@ -476,12 +476,15 @@
                         .sort((a,b)=>b[1]-a[1]);
                     const topMonth = sortedM_prog[0]?.[0] || (data.months['일정 미확인'] ? '일정 미확인' : '-');
                     
+                    const colTooltip = Object.entries(data.cols).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}명`).join('\n');
+                    const gradTooltip = Object.entries(data.grads).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}명`).join('\n');
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="font-weight:700">${progName}</td>
                         <td style="color:var(--primary); font-weight:700; cursor:pointer;" onclick="showModal('ALL_PROG', '${progName.replace(/'/g, "\\'")}')">${data.total}명</td>
-                        <td>${topCol}</td>
-                        <td>${topGrad}</td>
+                        <td title="${colTooltip}" style="cursor:help; text-decoration:underline dotted">${topCol}</td>
+                        <td title="${gradTooltip}" style="cursor:help; text-decoration:underline dotted">${topGrad}</td>
                         <td>${topMonth}</td>
                     `;
                     tbody.appendChild(tr);
@@ -522,12 +525,15 @@
                         const topCol = Object.entries(data.cols).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
                         const topGrad = Object.entries(data.grads).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
                         
+                        const colTooltip = Object.entries(data.cols).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}명`).join('\n');
+                        const gradTooltip = Object.entries(data.grads).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}명`).join('\n');
+                        
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td style="font-weight:700">${name}</td>
                             <td style="color:var(--primary); font-weight:700; cursor:pointer;" onclick="showModal('${m}', '${name.replace(/'/g, "\\'")}')">${data.total}명</td>
-                            <td>${topCol}</td>
-                            <td>${topGrad}</td>
+                            <td title="${colTooltip}" style="cursor:help; text-decoration:underline dotted">${topCol}</td>
+                            <td title="${gradTooltip}" style="cursor:help; text-decoration:underline dotted">${topGrad}</td>
                         `;
                         tbody.appendChild(tr);
                     });

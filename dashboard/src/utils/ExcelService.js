@@ -81,6 +81,8 @@ export const ExcelService = {
     const matrix = {};
     const programMatrix = {};
     const collegeDetails = {}; 
+    const studentTrace = {};
+    const netUniqueSet = new Set();
     let needsCheckCount = 0;
 
     data.forEach(item => {
@@ -220,6 +222,8 @@ export const ExcelService = {
         .sort((a,b)=>b[1]-a[1]);
     
     stats.topMonth = sortedMonths[0]?.[0] || (stats.byMonth['일정 미확인'] ? '일정 미확인' : '-');
+    stats.topCollege = sortedCols[0]?.[0] || '-';
+    stats.topGrade = sortedGrads[0]?.[0] || '-';
     const sortedProgs = Object.entries(programMatrix).sort((a,b) => b[1].total - a[1].total);
     stats.topProgram = sortedProgs[0]?.[0] || '-';
     stats.netUniqueCount = netUniqueSet.size;

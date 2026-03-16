@@ -109,7 +109,21 @@ table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  table-layout: fixed;
 }
+
+/* 4컬럼 (월별 리포트) 전용 */
+.table-4col th:nth-child(1) { width: 35%; }
+.table-4col th:nth-child(2) { width: 15%; }
+.table-4col th:nth-child(3) { width: 25%; }
+.table-4col th:nth-child(4) { width: 25%; }
+
+/* 5컬럼 (ALL 프로그램별) 전용 */
+.table-5col th:nth-child(1) { width: 30%; }
+.table-5col th:nth-child(2) { width: 10%; }
+.table-5col th:nth-child(3) { width: 20%; }
+.table-5col th:nth-child(4) { width: 20%; }
+.table-5col th:nth-child(5) { width: 20%; }
 
 th {
   background: #f1f5f9;
@@ -121,4 +135,71 @@ th {
 td {
   padding: 1rem;
   border-top: 1px solid var(--border);
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1024px) {
+  .dashboard-container {
+    grid-template-columns: 1fr;
+  }
+
+  aside {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  aside > div {
+    margin-bottom: 0 !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+  }
+
+  aside nav {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  main {
+    padding: 1.5rem;
+  }
+
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  aside {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  aside nav {
+    justify-content: flex-start;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+
+  header > div:last-child {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  header .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }

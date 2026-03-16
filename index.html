@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>진로취업 통계 시각화 시스템</title>
+    <title>진로취업 프로그램 통계 | 이화여자대학교 인재개발원</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #2563eb; --bg-main: #f1f5f9; --border: #e2e8f0; --radius: 12px; }
+        :root { --primary: #00462a; --secondary: #00462a; --bg-main: #f1f5f9; --border: #e2e8f0; --radius: 12px; }
         body { margin: 0; font-family: 'Pretendard', sans-serif; background: var(--bg-main); color: #1e293b; overflow-x: hidden; }
         .container { display: flex; min-height: 100vh; }
         aside { width: 260px; background: white; border-right: 1px solid var(--border); padding: 2.5rem 1.5rem; position: sticky; top: 0; height: 100vh; z-index: 50; }
@@ -23,9 +23,30 @@
         
         /* Table Styles (Restored) */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .fixed-table { table-layout: fixed; }
         th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid var(--border); font-size: 0.85rem; color: #64748b; }
-        td { padding: 14px 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+        td { padding: 14px 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         tr:hover { background: #f9fafb; }
+
+        /* 상세 리포트 항목 열 비율 고정 */
+        .summary-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+        .summary-table th, .summary-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        /* 4컬럼 (월별 리포트) 전용 */
+        .table-4col th:nth-child(1) { width: 35%; }
+        .table-4col th:nth-child(2) { width: 15%; }
+        .table-4col th:nth-child(3) { width: 25%; }
+        .table-4col th:nth-child(4) { width: 25%; }
+
+        /* 5컬럼 (ALL 프로그램별) 전용 */
+        .table-5col th:nth-child(1) { width: 30%; }
+        .table-5col th:nth-child(2) { width: 10%; }
+        .table-5col th:nth-child(3) { width: 20%; }
+        .table-5col th:nth-child(4) { width: 20%; }
+        .table-5col th:nth-child(5) { width: 20%; }
+        
+        /* 테이블 래퍼 수정 */
+        .table-container { width: 100%; overflow-x: auto; margin-bottom: 1rem; border-radius: 8px; border: 1px solid var(--border); }
 
         /* Modal Settings */
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
@@ -40,15 +61,39 @@
         .hidden { display: none; }
         .details-tooltip { visibility: hidden; position: absolute; background: #1e293b; color: white; padding: 12px; border-radius: 8px; z-index: 100; width: 240px; font-size: 0.8rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); opacity: 0; transition: opacity 0.2s; pointer-events: none; line-height: 1.6; }
         td:hover .details-tooltip { visibility: visible; opacity: 1; }
-        canvas { max-width: 100% !important; height: 320px !important; }
+        /* Mobile Responsive Updates */
+        @media (max-width: 1024px) {
+            .container { flex-direction: column; }
+            aside { width: 100%; height: auto; position: relative; padding: 1.5rem; border-right: none; border-bottom: 1px solid var(--border); }
+            main { padding: 1.5rem; }
+            .chart-row { grid-template-columns: 1fr; }
+            .stat-grid { grid-template-columns: 1fr; }
+            .modal-content { width: 95%; padding: 1.5rem; }
+        }
+
+        @media (max-width: 768px) {
+            .stat-grid { grid-template-columns: 1fr; }
+            .stat-value { font-size: 1.5rem; }
+            th, td { font-size: 0.75rem; padding: 8px; }
+            .card h3 { font-size: 1rem; }
+            .summary-table th:nth-child(n) { width: auto !important; }
+            .fixed-table { table-layout: auto; }
+            .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
+
+        .table-container { width: 100%; overflow-x: auto; margin-bottom: 1rem; border-radius: 8px; border: 1px solid var(--border); }
+        canvas { max-width: 100% !important; height: 300px !important; }
     </style>
 </head>
 <body>
     <div class="container">
         <aside>
-            <h2 style="color: var(--primary); margin-bottom: 2rem; display:flex; align-items:center; gap:8px;">
-                <span style="font-size:1.5rem">📉</span> CareerStat
-            </h2>
+            <div style="display:flex; flex-direction:column; align-items:center; margin-bottom: 2rem;">
+                <img src="assets/logo-cdc.png" alt="이화여자대학교 인재개발원" style="width: 100%; max-width: 220px; border-radius: 4px;">
+                <div style="margin-top: 15px; text-align: center;">
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #00462a;">진로취업 프로그램 통계</div>
+                </div>
+            </div>
             <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('excel-input').click()">엑셀 업로드</button>
             <input type="file" id="excel-input" hidden accept=".xlsx, .xls">
             <div id="sheet-area" class="hidden" style="margin-top: 2rem;">
@@ -58,7 +103,7 @@
         </aside>
 
         <main>
-            <h1 id="main-title" style="margin-top:0">통계 대시보드</h1>
+            <h1 id="main-title" style="margin-top:0; font-size:1.5rem;">통계 대시보드</h1>
             <div id="dashboard-view" class="hidden">
                 <div class="stat-grid">
                     <div class="card"><small style="color:#64748b">총 신청자</small><div id="stat-total" class="stat-value">-</div></div>
@@ -96,18 +141,40 @@
     </div>
 
     <script>
-        const collegeColors = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#4f46e5', '#9333ea', '#c026d3', '#e11d48', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#8b5cf6', '#06b6d4'];
+        const COLLEGE_LIST = ['인문과학대학', '사회과학대학', '자연과학대학', '공과대학(엘텍포함)', '음악대학', '조형예술대학', '사범대학', '경영대학', '신산업융합대학', '의과대학', '간호대학', '약학대학', '스크랜튼대학', '인공지능대학', '호크마교양대학', '건강과학대학'];
+        const collegeColors = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#4f46e5', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#84cc16', '#06b6d4', '#8b5cf6', '#d946ef'];
         let workbook = null, rawData = [], charts = {}, currentSheetName = "";
-        let mapping = { college: '단과대', grade: '학년', status: '참석여부', date: '참여일시', type: '구분', program: '프로그램명', education: '교육명', studentId: '학번', name: '이름' };
+        let mapping = { college: '단과대', grade: '학년', status: '참석여부', date: '참여일시', type: '구분', program: '프로그램명', education: '교육명', studentId: '학번', name: '이름', major: '전공' };
 
         document.getElementById('excel-input').addEventListener('change', function(e) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 workbook = XLSX.read(data, {type: 'array'});
-                document.getElementById('sheet-select').innerHTML = workbook.SheetNames.map(n => `<option value="${n}">${n}</option>`).join('');
+                
+                // ALL 시트 존재 여부 확인
+                const hasAll = workbook.SheetNames.some(n => n.toUpperCase() === 'ALL');
+                let displaySheetNames = [...workbook.SheetNames];
+                
+                if (!hasAll) {
+                    // ALL 시트가 없으면 가상 시트 생성
+                    let combined = [];
+                    workbook.SheetNames.forEach(name => {
+                        combined = combined.concat(XLSX.utils.sheet_to_json(workbook.Sheets[name]));
+                    });
+                    // 가상 시트 데이터를 workbook 객체에 주입 (메모리상)
+                    workbook.Sheets['ALL'] = XLSX.utils.json_to_sheet(combined);
+                    displaySheetNames.unshift('ALL');
+                } else {
+                    // 기존 ALL 시트를 가장 앞으로 이동
+                    const allIdx = displaySheetNames.findIndex(n => n.toUpperCase() === 'ALL');
+                    const allName = displaySheetNames.splice(allIdx, 1)[0];
+                    displaySheetNames.unshift(allName);
+                }
+
+                document.getElementById('sheet-select').innerHTML = displaySheetNames.map(n => `<option value="${n}">${n}</option>`).join('');
                 document.getElementById('sheet-area').classList.remove('hidden');
-                loadSheet(workbook.SheetNames[0]);
+                loadSheet(displaySheetNames[0]);
             };
             reader.readAsArrayBuffer(e.target.files[0]);
         });
@@ -117,12 +184,18 @@
             rawData = XLSX.utils.sheet_to_json(workbook.Sheets[name]);
             if (rawData.length > 0) {
                 const h = Object.keys(rawData[0]);
-                const find = (keys) => h.find(col => keys.some(k => col.includes(k))) || keys[0];
+                const find = (keys) => {
+                    for (const kw of keys) {
+                        const found = h.find(col => col.includes(kw));
+                        if (found) return found;
+                    }
+                    return keys[0];
+                };
                 mapping.college = find(['단과대', '대학']); mapping.grade = find(['학년']);
-                mapping.status = find(['참석', '참여여부', '결과']); mapping.date = find(['일시', '날짜']);
+                mapping.status = find(['참석', '참여여부', '결과']); mapping.date = find(['일정', '일자', '일시', '날짜']);
                 mapping.type = find(['구분']); mapping.program = find(['프로그램명', '프로그램']);
-                mapping.education = find(['교육명', '유형']); mapping.studentId = find(['학번', 'ID', '번호']);
-                mapping.name = find(['성명', '이름']);
+                mapping.education = find(['교육명', '유형', '프로그램명']); mapping.studentId = find(['학번', 'ID', '번호']);
+                mapping.name = find(['성명', '이름']); mapping.major = find(['전공', '학과']);
             }
             processData();
         }
@@ -131,64 +204,246 @@
 
         function processData() {
             if (!rawData || rawData.length === 0) return;
-            let participants = 0;
+            let participants = 0, needsCheckCount = 0;
             const byCol = {}, byGrad = {}, byMonth = {}, matrix = {}, studentTrace = {}, netUniqueSet = new Set();
+            const collegeDetails = {}; 
             const isAllMode = currentSheetName.toUpperCase().includes('ALL');
 
+            function getMapping(row) {
+                const keys = Object.keys(row);
+                const find = (keywords) => {
+                    for (const kw of keywords) {
+                        const match = keys.find(k => k.includes(kw));
+                        if (match) return match;
+                    }
+                    return null;
+                };
+                return {
+                    college: find(['단과대', '소속', '대학']),
+                    grade: find(['학년']),
+                    status: find(['참석', '참여여부', '상태', '결과']),
+                    date: find(['일정', '일시', '일자', '날짜', '시간', '시점']),
+                    program: find(['프로그램명', '프로그램']),
+                    education: find(['교육명', '유형', '프로그램명']),
+                    studentId: find(['학번', 'ID']),
+                    name: find(['성명', '이름']),
+                    major: find(['전공', '학과'])
+                };
+            }
+
             rawData.forEach(row => {
-                const status = String(row[mapping.status] || '').trim();
-                const isPart = ['참석', '완료', 'Y', '참여'].includes(status);
-                if (isPart) {
+                const m_row = getMapping(row);
+                
+                const sVal = String(row[m_row.status] || '').trim();
+                let isAttended = false;
+                let rowNeedsCheck = false;
+
+                if (sVal === '') {
+                    isAttended = true; // 빈칸은 우선 참여로
+                    rowNeedsCheck = true;
+                    needsCheckCount++;
+                } else if (sVal.includes('불참')) {
+                    isAttended = false;
+                } else if (sVal.includes('참') || sVal.includes('Y') || sVal.includes('완료')) {
+                    isAttended = true;
+                }
+
+                if (isAttended) {
                     participants++;
-                    const c = row[mapping.college] || '단과대정보 확인 불가', g = row[mapping.grade] || '학년정보 확인 불가', m = extractMonth(row[mapping.date]);
-                    const prog = row[mapping.program] || '기타 프로그램', edu = row[mapping.education] || '기타 유형', sid = String(row[mapping.studentId] || '미기입');
+                    
+                    // 단과대 분류
+                    const rawCol = row[m_row.college] || '';
+                    let c = '기타';
+                    if (rawCol.includes('공과대학') || rawCol.includes('엘텍')) {
+                        c = '공과대학(엘텍포함)';
+                    } else {
+                        for(const cName of COLLEGE_LIST) {
+                            if(rawCol.includes(cName)) { c = cName; break; }
+                        }
+                    }
+                    
+                    const major = row[m_row.major] || '미기입';
+                    if (!collegeDetails[c]) collegeDetails[c] = {};
+                    let detailKey = major;
+                    if (c === '기타') detailKey = rawCol || '정보없음';
+                    if (c === '공과대학(엘텍포함)') {
+                        const subName = rawCol.includes('엘텍') ? '엘텍공과' : '공과대학';
+                        detailKey = `[${subName}] ${major}`;
+                    }
+                    collegeDetails[c][detailKey] = (collegeDetails[c][detailKey] || 0) + 1;
+
+                    let g = row[m_row.grade];
+                    if (g !== undefined && g !== null) {
+                        g = String(g).trim();
+                        if (!g.includes('학년') && !isNaN(g) && g !== '') g = g + '학년';
+                    } else { g = '학년정보 확인 불가'; }
+                    
+                    const m = extractMonth(row[m_row.date]);
+                    const prog = row[m_row.program] || row[m_row.education] || '기타 프로그램'; 
+                    const edu = row[m_row.education] || row[m_row.program] || '기타 유형';
+                    const sid = String(row[m_row.studentId] || '미기입');
                     
                     byCol[c] = (byCol[c] || 0) + 1; byGrad[g] = (byGrad[g] || 0) + 1; byMonth[m] = (byMonth[m] || 0) + 1;
                     netUniqueSet.add(`${sid}|${prog}`);
-                    if (!studentTrace[sid]) studentTrace[sid] = { name: row[mapping.name], count: 0, college: c };
+                    if (!studentTrace[sid]) studentTrace[sid] = { name: row[m_row.name], count: 0, college: c };
                     studentTrace[sid].count++;
 
-                    if (!matrix[m]) matrix[m] = {};
-                    const groupKey = isAllMode ? prog : edu;
-                    if (!matrix[m][groupKey]) matrix[m][groupKey] = { total: 0, details: [], cols: {}, grads: {} };
-                    matrix[m][groupKey].total++;
-                    matrix[m][groupKey].details.push(row);
-                    matrix[m][groupKey].cols[c] = (matrix[m][groupKey].cols[c] || 0) + 1;
-                    matrix[m][groupKey].grads[g] = (matrix[m][groupKey].grads[g] || 0) + 1;
+                    if (isAllMode) {
+                        if (!matrix[prog]) matrix[prog] = { total: 0, details: [], cols: {}, grads: {}, months: {} };
+                        matrix[prog].total++;
+                        matrix[prog].details.push(row);
+                        matrix[prog].cols[c] = (matrix[prog].cols[c] || 0) + 1;
+                        matrix[prog].grads[g] = (matrix[prog].grads[g] || 0) + 1;
+                        matrix[prog].months[m] = (matrix[prog].months[m] || 0) + 1;
+                    } else {
+                        if (!matrix[m]) matrix[m] = {};
+                        const groupKey = edu;
+                        if (!matrix[m][groupKey]) matrix[m][groupKey] = { total: 0, details: [], cols: {}, grads: {} };
+                        matrix[m][groupKey].total++;
+                        matrix[m][groupKey].details.push(row);
+                        matrix[m][groupKey].cols[c] = (matrix[m][groupKey].cols[c] || 0) + 1;
+                        matrix[m][groupKey].grads[g] = (matrix[m][groupKey].grads[g] || 0) + 1;
+                    }
                 }
             });
 
             currentMatrix = matrix;
             document.getElementById('stat-total').innerText = rawData.length + '명';
-            document.getElementById('stat-participants').innerText = participants + '명';
+            document.getElementById('stat-participants').innerHTML = participants + '명' + (needsCheckCount > 0 ? `<br><small style="color:#e11d48; font-size:0.7rem; font-weight:400;">⚠️ 확인요망(빈칸): ${needsCheckCount}건</small>` : '');
             document.getElementById('stat-rate').innerText = ((participants / rawData.length) * 100).toFixed(1) + '%';
             
-            updateCharts(byCol, byGrad, byMonth);
+            const sortedC = Object.entries(byCol).sort((a,b)=>b[1]-a[1]);
+            const sortedG = Object.entries(byGrad).sort((a,b)=>b[1]-a[1]);
+            const sortedM = Object.entries(byMonth)
+                .filter(([m]) => m && m.includes('월') && !m.includes('미확인'))
+                .sort((a,b)=>b[1]-a[1]);
+            const finalTopMonth = sortedM[0]?.[0] || (byMonth['일정 미확인'] ? '일정 미확인' : '-');
+
+            const sortedP = Object.entries(isAllMode ? byMonth : matrix).sort((a,b)=>{
+                if (isAllMode) return b[1]-a[1];
+                const totalA = Object.values(a[1]).reduce((acc,curr)=>acc+curr.total, 0);
+                const totalB = Object.values(b[1]).reduce((acc,curr)=>acc+curr.total, 0);
+                return totalB - totalA;
+            });
+
+            let topPName = '-';
+            if (isAllMode) {
+                const sortedAllProgs = Object.entries(matrix).sort((a,b)=>b[1].total - a[1].total);
+                topPName = sortedAllProgs[0]?.[0] || '-';
+            } else {
+                let max = 0;
+                Object.values(matrix).forEach(mGroups => {
+                    Object.entries(mGroups).forEach(([name, data]) => {
+                        if (data.total > max) { max = data.total; topPName = name; }
+                    });
+                });
+            }
+
+            let maxDupeP = '-';
+            if (isAllMode) {
+                let maxD = 0;
+                Object.entries(matrix).forEach(([name, data]) => {
+                    let progTrace = {};
+                    data.details.forEach(row => {
+                        const m_row = getMapping(row);
+                        const sid = String(row[m_row.studentId] || '미기입');
+                        progTrace[sid] = (progTrace[sid] || 0) + 1;
+                    });
+                    const dCount = Object.values(progTrace).filter(count => count > 1).length;
+                    if (dCount > maxD) {
+                        maxD = dCount;
+                        maxDupeP = name;
+                    }
+                });
+            }
+
+            const analysisStats = {
+                topCol: sortedC[0]?.[0] || '-',
+                topGrad: sortedG[0]?.[0] || '-',
+                topMonth: finalTopMonth,
+                topProg: topPName,
+                mostDuplicatedProg: maxDupeP !== '-' ? maxDupeP : topPName
+            };
+
+            updateCharts(byCol, byGrad, byMonth, collegeDetails);
             renderMatrix(matrix, isAllMode);
-            generateInsight(byGrad, participants, netUniqueSet.size, Object.values(studentTrace).filter(s=>s.count>1).length);
+            generateInsight(byGrad, participants, netUniqueSet.size, Object.values(studentTrace).filter(s=>s.count>1).length, analysisStats);
             
             document.getElementById('dashboard-view').classList.remove('hidden');
             document.getElementById('welcome-view').classList.add('hidden');
         }
 
         function extractMonth(v) {
-            if (!v) return "미지정";
-            if (typeof v === 'number') return (new Date((v-25569)*86400*1000).getMonth()+1)+"월";
-            const p = String(v).match(/\d+/g);
-            return (p && p.length >= 2 && parseInt(p[1]) <= 12) ? parseInt(p[1]) + "월" : "미지정";
+            if (!v) return "일정 미확인";
+            if (typeof v === 'number') {
+                const date = new Date((v - 25569) * 86400 * 1000);
+                return (date.getMonth() + 1) + "월";
+            }
+            
+            const cleaned = String(v).replace(/\s+/g, '');
+            const parts = cleaned.match(/\d+/g);
+            
+            if (parts && parts.length > 0) {
+                let month = -1;
+                if (parts.length >= 3) {
+                    // YYYY MM DD
+                    month = parseInt(parts[1]);
+                } else if (parts.length === 2) {
+                    // 2024.03 OR 03.21
+                    const p0 = parseInt(parts[0]);
+                    const p1 = parseInt(parts[1]);
+                    if (p0 > 12) month = p1; // YYYY.MM
+                    else month = p0; // MM.DD
+                } else if (parts.length === 1) {
+                    // 3월 OR 03
+                    month = parseInt(parts[0]);
+                }
+
+                if (month >= 1 && month <= 12) {
+                    return month + "월";
+                }
+            }
+            return "일정 미확인";
         }
 
-        function updateCharts(col, grad, mon) {
+        function updateCharts(col, grad, mon, details) {
             if (charts.college) charts.college.destroy();
+            const sortedCol = Object.entries(col).sort((a, b) => b[1] - a[1]);
+            const colLabels = sortedCol.map(e => e[0]);
+            const colValues = sortedCol.map(e => e[1]);
+
             charts.college = new Chart(document.getElementById('collegeChart'), {
-                type: 'pie', data: { labels: Object.keys(col), datasets: [{ data: Object.values(col), backgroundColor: collegeColors }] },
-                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, font: { size:10 } } } } }
+                type: 'pie', data: { labels: colLabels, datasets: [{ data: colValues, backgroundColor: collegeColors }] },
+                options: { 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size:9 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const colName = context.label;
+                                    const count = context.raw;
+                                    const det = details[colName] || {};
+                                    const sorted = Object.entries(det).sort((a,b)=>b[1]-a[1]).slice(0, 5);
+                                    let lines = [colName + ': ' + count + '명'];
+                                    sorted.forEach(([k, v]) => lines.push('- ' + k + ': ' + v + '명'));
+                                    return lines;
+                                }
+                            }
+                        }
+                    } 
+                }
             });
 
             if (charts.grade) charts.grade.destroy();
             charts.grade = new Chart(document.getElementById('gradeChart'), {
                 type: 'bar', data: { labels: Object.keys(grad), datasets: [{ data: Object.values(grad), backgroundColor: '#2563eb', borderRadius: 6 }] },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: true } } }
+                options: { 
+                    maintainAspectRatio: false, 
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                    scales: { y: { ticks: { stepSize: 1 } } }
+                }
             });
 
             if (charts.month) charts.month.destroy();
@@ -200,47 +455,100 @@
 
         function renderMatrix(matrix, isAllMode) {
             const container = document.getElementById('monthly-report-container');
-            container.innerHTML = `<h3 style="margin-top:2.5rem">🗓️ 월별 세부 리포트 (요약된 주요 특징)</h3>`;
+            container.innerHTML = `<h3 style="margin-top:2.5rem">${isAllMode ? '📋 전체 운영 프로그램별 리포트' : '🗓️ 월별 세부 리포트'}</h3>`;
             
-            Object.entries(matrix).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([m, groups]) => {
+            if (isAllMode) {
                 const card = document.createElement('div');
-                card.className = 'card'; card.style.marginBottom = '1.5rem';
-                card.innerHTML = `<h4>📅 ${m} 운영 현황</h4>`;
-                
+                card.className = 'card';
+                card.innerHTML = `<h4>📊 프로그램별 통합 현황</h4>`;
+                const tableWrapper = document.createElement('div');
+                tableWrapper.className = 'table-container';
                 const table = document.createElement('table');
-                table.innerHTML = `<thead><tr><th>${isAllMode ? '프로그램명' : '교육명(유형)'}</th><th>인원</th><th>주요 단과대</th><th>주요 학년</th></tr></thead>`;
+                table.className = 'summary-table table-5col';
+                table.innerHTML = `<thead><tr><th>프로그램명</th><th>인원</th><th>주요 단과대</th><th>주요 학년</th><th>주요 월</th></tr></thead>`;
                 const tbody = document.createElement('tbody');
                 
-                Object.entries(groups).forEach(([name, data]) => {
-                    const sortedCols = Object.entries(data.cols).sort((a,b)=>b[1]-a[1]);
-                    const sortedGrads = Object.entries(data.grads).sort((a,b)=>b[1]-a[1]);
+                Object.entries(matrix).sort((a,b) => b[1].total - a[1].total).forEach(([progName, data]) => {
+                    const topCol = Object.entries(data.cols).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+                    const topGrad = Object.entries(data.grads).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+                    const sortedM_prog = Object.entries(data.months)
+                        .filter(([m]) => m && m.includes('월') && !m.includes('미확인'))
+                        .sort((a,b)=>b[1]-a[1]);
+                    const topMonth = sortedM_prog[0]?.[0] || (data.months['일정 미확인'] ? '일정 미확인' : '-');
                     
-                    const topCol = sortedCols.length > 0 ? sortedCols[0][0] : '-';
-                    const topGrad = sortedGrads.length > 0 ? sortedGrads[0][0] : '-';
-                    
-                    const colTooltip = sortedCols.map(([k,v])=>`${k}: ${v}명`).join('<br>');
-                    const gradTooltip = sortedGrads.map(([k,v])=>`${k}: ${v}명`).join('<br>');
-
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td style="font-weight:700">${name}</td>
-                        <td style="color:var(--primary); font-weight:700; cursor:pointer;" onclick="showModal('${m}', '${name.replace(/'/g, "\\'")}')">${data.total}명</td>
-                        <td style="position:relative; cursor:help;">${topCol} <div class="details-tooltip">${colTooltip}</div></td>
-                        <td style="position:relative; cursor:help;">${topGrad} <div class="details-tooltip">${gradTooltip}</div></td>
+                        <td style="font-weight:700">${progName}</td>
+                        <td style="color:var(--primary); font-weight:700; cursor:pointer;" onclick="showModal('ALL_PROG', '${progName.replace(/'/g, "\\'")}')">${data.total}명</td>
+                        <td>${topCol}</td>
+                        <td>${topGrad}</td>
+                        <td>${topMonth}</td>
                     `;
                     tbody.appendChild(tr);
                 });
                 table.appendChild(tbody);
-                card.appendChild(table);
+                tableWrapper.appendChild(table);
+                card.appendChild(tableWrapper);
                 container.appendChild(card);
-            });
+            } else {
+                const monthOrder = (m) => {
+                    if (m === '일정 미확인') return 999;
+                    const num = parseInt(m);
+                    return isNaN(num) ? 998 : num;
+                };
+
+                Object.entries(matrix).sort((a,b) => monthOrder(a[0]) - monthOrder(b[0])).forEach(([m, groups]) => {
+                    const card = document.createElement('div');
+                    card.className = 'card'; card.style.marginBottom = '1.5rem';
+                    
+                    let monthTotal = 0;
+                    Object.values(groups).forEach(g => monthTotal += g.total);
+
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h4 style="margin:0">📅 ${m} 운영 현황</h4>
+                            <div style="background:var(--primary); color:white; padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:700;">월 참여 합계: ${monthTotal}명</div>
+                        </div>
+                    `;
+                    
+                    const tableWrapper = document.createElement('div');
+                    tableWrapper.className = 'table-container';
+                    const table = document.createElement('table');
+                    table.className = 'summary-table table-4col';
+                    table.innerHTML = `<thead><tr><th>교육명(유형)</th><th>인원</th><th>주요 단과대</th><th>주요 학년</th></tr></thead>`;
+                    const tbody = document.createElement('tbody');
+                    
+                    Object.entries(groups).forEach(([name, data]) => {
+                        const topCol = Object.entries(data.cols).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+                        const topGrad = Object.entries(data.grads).sort((a,b)=>b[1]-a[1])[0]?.[0] || '-';
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight:700">${name}</td>
+                            <td style="color:var(--primary); font-weight:700; cursor:pointer;" onclick="showModal('${m}', '${name.replace(/'/g, "\\'")}')">${data.total}명</td>
+                            <td>${topCol}</td>
+                            <td>${topGrad}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    tableWrapper.appendChild(table);
+                    card.appendChild(tableWrapper);
+                    container.appendChild(card);
+                });
+            }
         }
 
         function showModal(month, key) {
-            const rows = currentMatrix[month][key].details;
+            let rows = [];
+            if (month === 'ALL_PROG') {
+                rows = currentMatrix[key].details;
+            } else {
+                rows = currentMatrix[month][key].details;
+            }
             const modal = document.getElementById('detailModal');
             const dataBox = document.getElementById('modalData');
-            document.getElementById('modalTitle').innerText = `${month} | ${key} 상세 내역`;
+            document.getElementById('modalTitle').innerText = `${month === 'ALL_PROG' ? '전체 프로그램' : month} | ${key} 상세 내역`;
             
             let html = '<table><thead><tr><th>학번</th><th>성명</th><th>단과대</th><th>학년</th></tr></thead><tbody>';
             rows.forEach(r => {
@@ -253,15 +561,64 @@
 
         function closeModal() { document.getElementById('detailModal').style.display = 'none'; }
 
-        function generateInsight(grad, part, netUnique, dupeCount) {
-            const seniorRate = (grad['4학년'] || 0) / part;
-            const isConc = (grad['1학년']||0) === 0 || seniorRate > 0.5;
+        function generateInsight(grad, part, netUnique, dupeCount, stats) {
+            const isAllMode = currentSheetName.toUpperCase().includes('ALL');
+            
+            let text = `데이터 분석 결과, 전반적으로 <strong>${stats.topCol}</strong>의 참여가 가장 비중이 높으며, <strong>${stats.topGrad}</strong>의 참여 비율이 가장 높게 나타납니다. <br>`;
+            
+            if (isAllMode) {
+                text += `중복 참여가 가장 많은 프로그램은 <strong>${stats.mostDuplicatedProg}</strong>이며, <strong>${stats.topMonth}</strong>에 가장 높은 참여율을 보이고 있습니다. <br>`;
+            } else {
+                text += `개설했던 교육 중 <strong>${stats.topProg}</strong> 교육이 <strong>${part}명</strong>으로 가장 참여자가 많았습니다. <br>`;
+            }
+            
+            text += `<span style="font-size:0.85rem; color:64748b; margin-top:8px; display:block;">
+                • 순 참여자: 총 참여 ${part}명 중 고유 인원은 ${netUnique}명입니다. 
+                • 중복 참여 현황: 총 ${dupeCount}명의 학생이 다회 이용하고 있습니다.
+            </span>`;
+
             document.getElementById('insight-text').innerHTML = `
-                <div style="font-size:1rem; font-weight:800; margin-bottom:8px;">📊 참여 정밀 분석 결과</div>
-                데이터 분석 결과, 본 리포트는 <strong>${isConc ? '특정 계층 집중형' : '전 학년 고른 분포형'}</strong> 모델을 보이고 있습니다. <br>
-                • <strong>순 참여자(Net Unique)</strong>: 총 참여 ${part}명 중 고유 인원은 <strong>${netUnique}명</strong>입니다. <br>
-                • <strong>중복 참여 현황</strong>: 총 <strong>${dupeCount}명</strong>의 학생이 다회 이용하고 있습니다.
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="font-size:1rem; font-weight:800; margin-bottom:12px;">📊 참여 정밀 분석 리포트</div>
+                    <div style="line-height:1.7;">${text}</div>
+                </div>
+                <div id="comment-section" style="border-top: 1px solid var(--border); padding-top: 1.5rem;">
+                    ${renderCommentArea()}
+                </div>
             `;
+        }
+
+        function renderCommentArea(isEditing = false) {
+            const saved = localStorage.getItem(`mgr_comment_${currentSheetName}`) || "";
+            if (isEditing) {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-size:0.9rem; font-weight:700; color:var(--primary);">📝 담당자 분석 코멘트 작성</div>
+                        <button class="btn btn-primary" style="padding:4px 12px; font-size:0.8rem;" onclick="saveComment()">저장하기 💾</button>
+                    </div>
+                    <textarea id="admin-comment" style="width:100%; height:100px; border:1px solid var(--primary); border-radius:8px; padding:12px; font-size:0.9rem; resize:none; line-height:1.5;" placeholder="이곳에 직접 분석 내용을 입력하세요...">${saved}</textarea>
+                `;
+            } else {
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="font-size:0.9rem; font-weight:700;">📝 담당자 분석 코멘트</div>
+                        <button class="btn btn-detail" style="padding:4px 12px; font-size:0.8rem;" onclick="toggleEdit(true)">편집하기 ✏️</button>
+                    </div>
+                    <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid var(--border); min-height:60px; line-height:1.6; font-size:0.95rem; color:#334155;">
+                        ${saved ? saved.replace(/\n/g, '<br>') : '<span style="color:#94a3b8">작성된 코멘트가 없습니다. 편집하기 버튼을 눌러 내용을 입력하세요.</span>'}
+                    </div>
+                `;
+            }
+        }
+
+        function toggleEdit(editing) {
+            document.getElementById('comment-section').innerHTML = renderCommentArea(editing);
+        }
+
+        function saveComment() {
+            const comment = document.getElementById('admin-comment').value;
+            localStorage.setItem(`mgr_comment_${currentSheetName}`, comment);
+            toggleEdit(false);
         }
     </script>
 </body>
